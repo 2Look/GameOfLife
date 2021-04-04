@@ -1,4 +1,4 @@
-package com.david.gameoflife
+package com.david.gameoflife.utils
 
 sealed class Cell {
     object Alive : Cell()

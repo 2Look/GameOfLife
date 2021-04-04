@@ -1,41 +1,40 @@
 package com.david.gameoflife
 
-import androidx.compose.ui.res.booleanResource
+import com.david.gameoflife.utils.GameUtils
+import com.david.gameoflife.utils.GameUtils.nextGeneration
 import org.junit.Test
-
-import org.junit.Assert.*
 
 class BoardTest {
 
     @Test
     fun `one cell dies`() {
-        val board = Board()
-        board.toggleCell(0,0)
-        board.nextGeneration()
-        assert(board.matrix[0][0] == Cell.Dead)
+        val viewModel = GameViewModel()
+        viewModel.toggleCell(0, 0)
+        val nextGen = nextGeneration(viewModel.workingCells)
+        assert(!nextGen.contains(Pair(0, 0)))
     }
 
     @Test
-    fun `four cells survive`(){
-        val board = Board()
-        board.toggleCell(0,0)
-        board.toggleCell(1,0)
-        board.toggleCell(0,1)
-        board.toggleCell(1,1)
-        board.nextGeneration()
-        assert(board.matrix[0][0] == Cell.Alive)
-        assert(board.matrix[1][0] == Cell.Alive)
-        assert(board.matrix[0][1] == Cell.Alive)
-        assert(board.matrix[1][1] == Cell.Alive)
+    fun `four cells survive`() {
+        val viewModel = GameViewModel()
+        viewModel.toggleCell(0, 0)
+        viewModel.toggleCell(1, 0)
+        viewModel.toggleCell(0, 1)
+        viewModel.toggleCell(1, 1)
+        val nextGen = nextGeneration(viewModel.workingCells)
+        assert(nextGen.contains(Pair(0, 0)))
+        assert(nextGen.contains(Pair(0, 1)))
+        assert(nextGen.contains(Pair(1, 0)))
+        assert(nextGen.contains(Pair(1, 1)))
     }
 
     @Test
     fun `three cells multiply`() {
-        val board = Board()
-        board.toggleCell(0,0)
-        board.toggleCell(0,1)
-        board.toggleCell(1,0)
-        board.nextGeneration()
-        assert(board.matrix[1][1] == Cell.Alive)
+        val viewModel = GameViewModel()
+        viewModel.toggleCell(0, 0)
+        viewModel.toggleCell(0, 1)
+        viewModel.toggleCell(1, 0)
+        val nextGen = nextGeneration(viewModel.workingCells)
+        assert(nextGen.contains(Pair(1, 1)))
     }
 }

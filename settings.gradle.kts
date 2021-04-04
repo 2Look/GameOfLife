@@ -1,2 +1,3 @@
 rootProject.name = "GameOfLife"
-include ':app'
+
+include("app")

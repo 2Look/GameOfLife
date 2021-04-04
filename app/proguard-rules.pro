@@ -20,11 +20,13 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-## Jetpack Compose
--keepnames class androidx.compose.** { *; }
-
--keep class androidx.compose.runtime.Composable
-
--keepclassmembernames class * {
-    @androidx.compose.runtime.Composable <methods>;
-}
+### Jetpack Compose
+#-keepnames class androidx.compose.** { *; }
+#
+#-keepclassmembernames class * {
+#    @androidx.compose.runtime.Composable <methods>;
+#}
+#
+-keepattributes SourceFile,LineNumberTable
+-keepattributes *Annotation*
+-dontobfuscate

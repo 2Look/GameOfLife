@@ -1,16 +1,46 @@
 package com.david.gameoflife
 
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import com.david.gameoflife.utils.CellSet
 
 class GameViewModel : ViewModel() {
-    var board: Board by mutableStateOf(Board())
+
+    var id: Int? = null
+    var name: String = "Default"
+
+    var gameIsRunning: Boolean by mutableStateOf(false)
+
+    var displayedCells: Set<Pair<Int, Int>> by mutableStateOf(emptySet())
         private set
 
-    fun toggleCell(x: Int, y: Int) {
-        board = board.toggleCell(x, y)
+    var workingCells = setOf<Pair<Int, Int>>()
+        private set
+
+    fun updateCells(newCells: CellSet) {
+        displayedCells = newCells
+        workingCells = newCells.toSet()
     }
+
+    fun toggleCell(x: Int, y: Int) {
+        val pair = Pair(x, y)
+        displayedCells = if (!displayedCells.contains(pair)) {
+            displayedCells + pair
+        } else {
+            displayedCells - pair
+        }
+        workingCells = displayedCells.toSet()
+    }
+
+
+    fun clearCells() {
+        displayedCells = emptySet()
+        workingCells = emptySet()
+    }
+
+
 }
+
+
