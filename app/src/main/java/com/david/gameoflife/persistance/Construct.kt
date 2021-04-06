@@ -28,6 +28,6 @@ interface ConstructDao {
     suspend fun insertConstruct(construct: Construct): Long
 
     @Delete
-    fun deleteConstruct(construct: Construct)
+    suspend fun deleteConstruct(construct: Construct)
 }
 

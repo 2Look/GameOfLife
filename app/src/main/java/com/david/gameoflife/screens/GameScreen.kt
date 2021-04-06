@@ -2,6 +2,7 @@ package com.david.gameoflife.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -71,6 +72,7 @@ import com.david.gameoflife.utils.GameUtils
 import com.david.gameoflife.utils.GameUtils.checkCell
 import com.david.gameoflife.utils.Serialization.parseCoordinates
 import com.david.gameoflife.utils.Serialization.serialize
+import com.david.gameoflife.utils.normalize
 import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.math.pow
@@ -282,7 +284,7 @@ fun GameScreen(
             },
             floatingActionButtonPosition = FabPosition.Center,
             isFloatingActionButtonDocked = true,
-        ){
+        ) {
             GameGrid(canvasMode)
         }
 
@@ -291,19 +293,44 @@ fun GameScreen(
 
 }
 
-data class ConstructData(val name: String, val cells: CellSet)
+data class ConstructData(val id: Int, val name: String, val cells: CellSet)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ConstructList() {
     var constructs: List<ConstructData> by remember { mutableStateOf(emptyList()) }
+    var showDeletionDialog: Boolean by remember { mutableStateOf(false) }
+    var constructToDelete by remember { mutableStateOf(0 to "") }
     val coroutineScope = rememberCoroutineScope()
     val currentContext = LocalContext.current
+    val db = AppDatabase.getInstance(currentContext)
+
+    if (showDeletionDialog) {
+        ConfirmDialog(
+            question = "Are you sure you want to delete ${constructToDelete.second}",
+            onConfirm = {
+                coroutineScope.launch {
+                    db.constructDao().deleteConstruct(
+                        Construct(
+                            constructToDelete.first,
+                            constructToDelete.second,
+                            ""
+                        )
+                    )
+                    showDeletionDialog = false
+                }
+            },
+            onCancel = {
+                constructToDelete = 0 to ""
+                showDeletionDialog = false
+            })
+    }
+
     SideEffect(effect = {
         coroutineScope.launch {
-            val db = AppDatabase.getInstance(currentContext)
             constructs = db.constructDao().getAll().map {
                 ConstructData(
+                    it.uid,
                     it.name,
                     it.coordinates.parseCoordinates()
                 )
@@ -315,7 +342,10 @@ fun ConstructList() {
     LazyVerticalGrid(cells = GridCells.Adaptive(128.dp), content = {
         constructs.forEach { construct ->
             item {
-                ConstructInfo(construct)
+                ConstructInfo(construct, onTap = {
+                    constructToDelete = construct.id to construct.name
+                    showDeletionDialog = true
+                }, onLongPress = {})
             }
         }
     })
@@ -323,7 +353,11 @@ fun ConstructList() {
 }
 
 @Composable
-fun ConstructInfo(construct: ConstructData) {
+fun ConstructInfo(
+    construct: ConstructData,
+    onTap: (Offset) -> Unit,
+    onLongPress: (Offset) -> Unit
+) {
     Card(
         Modifier
             .fillMaxSize()
@@ -331,13 +365,30 @@ fun ConstructInfo(construct: ConstructData) {
             .shadow(8.dp),
         backgroundColor = purple700
     ) {
-        Box(modifier = Modifier
-            .padding(8.dp)
-            .fillMaxSize()){
-            Canvas(modifier = Modifier.size(100.dp), onDraw = {
-                drawCells(construct.cells, 10, Offset.Zero, size.height, size.width)
-            })
+        Box(
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = onTap,
+                        onLongPress = onLongPress
+                    )
+                }
+        ) {
             Text(construct.name)
+            Canvas(modifier = Modifier
+                .size(100.dp)
+                .padding(top = 32.dp)
+                .background(Color.Red), onDraw = {
+                drawCells(
+                    construct.cells,
+                    size.height.toInt() / 2,
+                    Offset.Zero,
+                    size.height,
+                    size.width
+                )
+            })
         }
     }
 }
@@ -467,7 +518,7 @@ fun SelectionCanvas(increment: Int, currentScalingFactor: Float, currentTranslat
                             Construct(
                                 0,
                                 it,
-                                selectedCells.serialize()
+                                selectedCells.normalize().serialize()
                             )
                         )
                     selectedCells = emptySet()
