@@ -37,13 +37,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.david.gameoflife.ConfirmDialog
-import com.david.gameoflife.GameLoopScheduler
-import com.david.gameoflife.GameLoopSpeedChanger
-import com.david.gameoflife.GameViewModel
+import com.david.gameoflife.*
 import com.david.gameoflife.MainActivity.Companion.saveGameState
 import com.david.gameoflife.R
-import com.david.gameoflife.TextBoxDialog
 import com.david.gameoflife.persistance.AppDatabase
 import com.david.gameoflife.persistance.Construct
 import com.david.gameoflife.ui.theme.purple700
@@ -56,10 +52,6 @@ import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.math.pow
 
-sealed class CanvasMode {
-    object Navigation : CanvasMode()
-    object Selection : CanvasMode()
-}
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -73,7 +65,6 @@ fun GameScreen(
     var currentSpeedMultiplier: Long by remember { mutableStateOf(1) }
     var showClearDialog: Boolean by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    var canvasMode: CanvasMode by remember { mutableStateOf(CanvasMode.Navigation) }
     val coroutineScope = rememberCoroutineScope()
     val currentContext = LocalContext.current
     val gameIsRunning = gameViewModel.gameIsRunning
@@ -99,6 +90,7 @@ fun GameScreen(
             })
     }
 
+    val canvasMode = gameViewModel.canvasMode
 
     ModalDrawer(
         gesturesEnabled = canvasMode == CanvasMode.Navigation,
@@ -121,7 +113,7 @@ fun GameScreen(
                     }
                     Spacer(Modifier.weight(0.5f, true))
                     IconButton(onClick = {
-                        canvasMode = if (canvasMode == CanvasMode.Navigation) CanvasMode.Selection
+                        gameViewModel.canvasMode = if (canvasMode == CanvasMode.Navigation) CanvasMode.Selection
                         else CanvasMode.Navigation
                     }) {
                         if (canvasMode == CanvasMode.Selection)
@@ -264,7 +256,7 @@ fun GameScreen(
             floatingActionButtonPosition = FabPosition.Center,
             isFloatingActionButtonDocked = true,
         ) {
-            GameGrid(canvasMode)
+            GameGrid()
         }
     }
 
@@ -367,7 +359,6 @@ fun ConstructInfo(
 
 @Composable
 fun GameGrid(
-    canvasMode: CanvasMode,
     subdivisions: Int = 50,
     interactive: Boolean = true,
     gameViewModel: GameViewModel = viewModel()
@@ -455,7 +446,7 @@ fun GameGrid(
             }
         }
     })
-    if (canvasMode == CanvasMode.Selection)
+    if (gameViewModel.canvasMode == CanvasMode.Selection)
         SelectionCanvas(increment, currentScalingFactor, currentTranslation)
 }
 
@@ -496,6 +487,7 @@ fun SelectionCanvas(increment: Int, currentScalingFactor: Float, currentTranslat
                         )
                     gameViewModel.constructs = db.constructDao().getAll().mapToConstructData()
                     selectedCells = emptySet()
+                    gameViewModel.canvasMode = CanvasMode.Navigation
                     showSaveDialog = false
                 }
             })

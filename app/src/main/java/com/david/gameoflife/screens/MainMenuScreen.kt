@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.david.gameoflife.CanvasMode
 import com.david.gameoflife.GameViewModel
 import com.david.gameoflife.TextBoxDialog
 import com.david.gameoflife.persistance.AppDatabase
@@ -71,7 +72,7 @@ fun MainMenuScreen(
             })
     }
 
-    GameGrid(CanvasMode.Navigation, interactive = false)
+    GameGrid(interactive = false)
     Column(
         Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,

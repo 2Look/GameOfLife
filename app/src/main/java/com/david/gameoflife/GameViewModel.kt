@@ -8,12 +8,20 @@ import androidx.lifecycle.ViewModel
 import com.david.gameoflife.screens.ConstructData
 import com.david.gameoflife.utils.CellSet
 
+sealed class CanvasMode {
+    object Navigation : CanvasMode()
+    object Selection : CanvasMode()
+}
+
+
 class GameViewModel : ViewModel() {
 
     var id: Int? = null
     var name: String = "Default"
 
     var constructs: List<ConstructData> by mutableStateOf(emptyList())
+
+    var canvasMode: CanvasMode by mutableStateOf(CanvasMode.Navigation)
 
     var gameIsRunning: Boolean by mutableStateOf(false)
 
