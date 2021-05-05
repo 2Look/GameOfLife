@@ -6,32 +6,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.GridCells
 import androidx.compose.foundation.lazy.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.BottomAppBar
-import androidx.compose.material.BottomDrawer
-import androidx.compose.material.BottomDrawerValue
-import androidx.compose.material.Card
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.DropdownMenuItem
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.FabPosition
-import androidx.compose.material.FloatingActionButton
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
+import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.rememberBottomDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -66,13 +48,10 @@ import com.david.gameoflife.persistance.AppDatabase
 import com.david.gameoflife.persistance.Construct
 import com.david.gameoflife.ui.theme.purple700
 import com.david.gameoflife.ui.theme.teal200
-import com.david.gameoflife.utils.Cell
-import com.david.gameoflife.utils.CellSet
-import com.david.gameoflife.utils.GameUtils
+import com.david.gameoflife.utils.*
 import com.david.gameoflife.utils.GameUtils.checkCell
 import com.david.gameoflife.utils.Serialization.parseCoordinates
 import com.david.gameoflife.utils.Serialization.serialize
-import com.david.gameoflife.utils.normalize
 import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.math.pow
@@ -93,7 +72,7 @@ fun GameScreen(
     var dropDownExpanded: Boolean by remember { mutableStateOf(false) }
     var currentSpeedMultiplier: Long by remember { mutableStateOf(1) }
     var showClearDialog: Boolean by remember { mutableStateOf(false) }
-    val drawerState = rememberBottomDrawerState(BottomDrawerValue.Closed)
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
     var canvasMode: CanvasMode by remember { mutableStateOf(CanvasMode.Navigation) }
     val coroutineScope = rememberCoroutineScope()
     val currentContext = LocalContext.current
@@ -121,13 +100,13 @@ fun GameScreen(
     }
 
 
-    BottomDrawer(
+    ModalDrawer(
         gesturesEnabled = canvasMode == CanvasMode.Navigation,
         drawerState = drawerState,
         drawerContent = {
             ConstructList()
-
         }) {
+
         Scaffold(
             bottomBar = {
                 BottomAppBar(
@@ -287,7 +266,6 @@ fun GameScreen(
         ) {
             GameGrid(canvasMode)
         }
-
     }
 
 
@@ -297,8 +275,7 @@ data class ConstructData(val id: Int, val name: String, val cells: CellSet)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ConstructList() {
-    var constructs: List<ConstructData> by remember { mutableStateOf(emptyList()) }
+fun ConstructList(gameViewModel: GameViewModel = viewModel()) {
     var showDeletionDialog: Boolean by remember { mutableStateOf(false) }
     var constructToDelete by remember { mutableStateOf(0 to "") }
     val coroutineScope = rememberCoroutineScope()
@@ -326,21 +303,16 @@ fun ConstructList() {
             })
     }
 
-    SideEffect(effect = {
+
+    SideEffect {
         coroutineScope.launch {
-            constructs = db.constructDao().getAll().map {
-                ConstructData(
-                    it.uid,
-                    it.name,
-                    it.coordinates.parseCoordinates()
-                )
-            }
+            gameViewModel.constructs = db.constructDao().getAll().mapToConstructData()
         }
-    })
+    }
 
 
     LazyVerticalGrid(cells = GridCells.Adaptive(128.dp), content = {
-        constructs.forEach { construct ->
+        gameViewModel.constructs.forEach { construct ->
             item {
                 ConstructInfo(construct, onTap = {
                     constructToDelete = construct.id to construct.name
@@ -379,16 +351,16 @@ fun ConstructInfo(
             Text(construct.name)
             Canvas(modifier = Modifier
                 .size(100.dp)
-                .padding(top = 32.dp)
-                .background(Color.Red), onDraw = {
-                drawCells(
-                    construct.cells,
-                    size.height.toInt() / 2,
-                    Offset.Zero,
-                    size.height,
-                    size.width
-                )
-            })
+                .padding(top = 32.dp),
+                onDraw = {
+                    drawCells(
+                        construct.cells,
+                        size.height.toInt() / 3,
+                        Offset.Zero,
+                        size.height,
+                        size.width
+                    )
+                })
         }
     }
 }
@@ -512,15 +484,17 @@ fun SelectionCanvas(increment: Int, currentScalingFactor: Float, currentTranslat
             onConfirm = {
                 if (selectedCells.isEmpty()) return@TextBoxDialog
                 coroutineScope.launch {
+                    val normalizedCells = selectedCells.normalize()
                     val db = AppDatabase.getInstance(currentContext)
                     db.constructDao()
                         .insertConstruct(
                             Construct(
                                 0,
                                 it,
-                                selectedCells.normalize().serialize()
+                                normalizedCells.serialize()
                             )
                         )
+                    gameViewModel.constructs = db.constructDao().getAll().mapToConstructData()
                     selectedCells = emptySet()
                     showSaveDialog = false
                 }

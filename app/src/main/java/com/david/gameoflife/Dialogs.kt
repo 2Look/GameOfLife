@@ -64,14 +64,14 @@ fun TextBoxDialog(
     onConfirm: (String) -> Unit,
 ) {
     var newConstructName: String by remember { mutableStateOf("") }
-    var enabled: Boolean by remember { mutableStateOf(true) }
+//    var enabled: Boolean by remember { mutableStateOf(true) }
     Dialog(onDismissRequest = onDismissRequest) {
         Card(Modifier.padding(8.dp)) {
             Column(Modifier.padding(4.dp)) {
                 TextField(
                     modifier = Modifier.padding(PaddingValues(4.dp)),
                     value = newConstructName,
-                    enabled = enabled,
+//                    enabled = enabled,
                     onValueChange = { newConstructName = it },
                     placeholder = {
                         Text(placeholderText)
@@ -86,7 +86,7 @@ fun TextBoxDialog(
                         onClick = {
                             onCancel()
                             newConstructName = ""
-                            enabled = false
+//                            enabled = false
                         }
                     ) {
                         Text(cancelText)
@@ -96,7 +96,7 @@ fun TextBoxDialog(
                         onClick = {
                             onConfirm(newConstructName)
                             newConstructName = ""
-                            enabled = false
+//                            enabled = false
                         }
                     ) {
                         Text(confirmText)

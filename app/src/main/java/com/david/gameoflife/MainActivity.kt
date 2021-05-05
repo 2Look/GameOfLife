@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
         }
 
         Router<AppRoute>(start = MainMenuRoute) { currentRoute ->
-            when (val route = currentRoute.data) {
+            when (currentRoute.value) {
                 BoardSelectRoute -> BoardSelectScreen { push(GameRoute) }
                 GameRoute -> GameScreen(
                     ::changeGameLoopSpeed,

@@ -1,9 +1,7 @@
 package com.david.gameoflife.routing
 
-
-import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
-import androidx.compose.foundation.layout.Box
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -11,76 +9,81 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import com.koduok.compose.navigation.core.BackStack
-import com.koduok.compose.navigation.core.BackStackController
+import com.koduok.compose.navigation.core.BackStackController.Listener
 import com.koduok.compose.navigation.core.BackStackId
-import com.koduok.compose.navigation.core.GlobalRoute
 import com.koduok.compose.navigation.core.Route
 import com.koduok.compose.navigation.core.backStackController
 
-internal val LocalNullableBackStack = compositionLocalOf<BackStack<Any>?> { null }
-val LocalBackStack =
-    compositionLocalOf<BackStack<Any>> { throw IllegalStateException("Missing Router(...) { ... } above") }
+internal val LocalNullableBackStack = compositionLocalOf<BackStack<*>?> { null }
+internal val LocalOnBackPressedDispatcherEnabled = compositionLocalOf { false }
+val LocalBackStack = compositionLocalOf<BackStack<*>> { throw IllegalStateException("Missing Router(...) { ... } above") }
 
 @Composable
-inline fun <reified T : Any> Router(
-    start: T,
-    otherStart: List<T> = emptyList(),
-    noinline children: @Composable BackStack<T>.(Route<T>) -> Unit
-) =
-    Router(T::class.java.name, start, otherStart, children)
+inline fun <reified T : Any> Router(start: T, otherStart: List<T> = emptyList(), noinline content: @Composable BackStack<T>.(Route<T>) -> Unit) =
+    Router(T::class.java.name, start, otherStart, content)
 
 @Composable
-fun <T : Any> Router(
-    id: BackStackId,
-    start: T,
-    otherStart: List<T> = emptyList(),
-    children: @Composable BackStack<T>.(Route<T>) -> Unit
-) {
-    val activity = LocalContext.current as? ComponentActivity
+fun <T : Any> Router(id: BackStackId, start: T, otherStart: List<T> = emptyList(), content: @Composable BackStack<T>.(Route<T>) -> Unit) {
     val parentKey = LocalNullableBackStack.current?.key
     val backStack = remember { backStackController.register(id, parentKey, start, otherStart) }
-    var showRoutesState by remember { mutableStateOf(backStack.currentWithShowStack) }
+    val saveableStateHolder = rememberSaveableStateHolder()
+    var currentRoute by remember { mutableStateOf(backStack.current) }
 
-    DisposableEffect(null, effect = {
-        val onBackPressCallback = object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                backStackController.pop()
-            }
-        }
-        activity?.onBackPressedDispatcher?.addCallback(onBackPressCallback)
+    HandleBackPress()
 
-        backStackController.addListener(object : BackStackController.Listener {
-            override fun onBackStackChanged(snapshot: List<GlobalRoute>) {
-                onBackPressCallback.isEnabled = snapshot.size > 1
-            }
-        })
-
+    DisposableEffect(Unit) {
         val listener = object : BackStack.Listener<T> {
             override fun onCurrentChanged(route: Route<T>) {
-                showRoutesState = backStack.currentWithShowStack
+                currentRoute = backStack.current
             }
         }
+
         backStack.addListener(listener)
 
         onDispose {
             backStack.removeListener(listener)
-            onBackPressCallback.remove()
         }
+    }
 
-    })
-
-
-    @Suppress("UNCHECKED_CAST") val anyBackStack = backStack as BackStack<Any>
+    val anyBackStack = backStack as BackStack<*>
     CompositionLocalProvider(
         LocalBackStack.provides(anyBackStack),
-        LocalNullableBackStack.provides(anyBackStack)
+        LocalNullableBackStack.provides(anyBackStack),
+        LocalOnBackPressedDispatcherEnabled.provides(true),
     ) {
-        Box(modifier = Modifier) {
-            showRoutesState.forEach { children(backStack, it) }
+        saveableStateHolder.SaveableStateProvider(currentRoute.value.toString()) {
+            content(backStack, currentRoute)
+        }
+    }
+
+}
+
+@Composable
+private fun HandleBackPress() {
+    val onBackPressedDispatcher = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+    val isBackPressAlreadyHandled = LocalOnBackPressedDispatcherEnabled.current
+
+    if (!isBackPressAlreadyHandled) {
+        DisposableEffect(Unit) {
+            val onBackPressCallback = object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    backStackController.pop()
+                }
+            }
+            onBackPressedDispatcher.addCallback(onBackPressCallback)
+
+            backStackController.addListener(object : Listener {
+                override fun onBackStackChanged(snapshot: List<Route<*>>) {
+                    onBackPressCallback.isEnabled = snapshot.size > 1
+                }
+            })
+
+            onDispose {
+                onBackPressCallback.remove()
+            }
         }
     }
 }

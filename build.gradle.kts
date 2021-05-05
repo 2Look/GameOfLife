@@ -1,4 +1,3 @@
-import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
 
 buildscript {
     repositories {
@@ -6,7 +5,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:7.0.0-alpha08")
+        classpath("com.android.tools.build:gradle:7.0.0-alpha15")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${DependencyVersions.KOTLIN}")
     }
 }
@@ -33,11 +32,11 @@ plugins {
     id("com.github.ben-manes.versions") version "0.36.0"
 }
 
-tasks.named("dependencyUpdates", DependencyUpdatesTask::class.java).configure {
-    rejectVersionIf {
-        candidate.version.contains("alpha") && !this@rejectVersionIf.currentVersion.contains("alpha")
-    }
-}
+//tasks.named("dependencyUpdates", DependencyUpdatesTask::class.java).configure {
+//    rejectVersionIf {
+//        candidate.version.contains("alpha") && !this@rejectVersionIf.currentVersion.contains("alpha")
+//    }
+//}
 
 tasks.register("clean", Delete::class) {
     delete(rootProject.buildDir)

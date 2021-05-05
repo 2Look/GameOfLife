@@ -2,14 +2,18 @@ package com.david.gameoflife
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import com.david.gameoflife.screens.ConstructData
 import com.david.gameoflife.utils.CellSet
 
 class GameViewModel : ViewModel() {
 
     var id: Int? = null
     var name: String = "Default"
+
+    var constructs: List<ConstructData> by mutableStateOf(emptyList())
 
     var gameIsRunning: Boolean by mutableStateOf(false)
 
