@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import com.david.gameoflife.screens.ConstructData
 import com.david.gameoflife.utils.CellSet
@@ -11,15 +12,19 @@ import com.david.gameoflife.utils.CellSet
 sealed class CanvasMode {
     object Navigation : CanvasMode()
     object Selection : CanvasMode()
+    object Placing : CanvasMode()
 }
 
 
 class GameViewModel : ViewModel() {
+    var boardId: Int? = null
 
-    var id: Int? = null
-    var name: String = "Default"
 
+    var boardName: String = "Default"
     var constructs: List<ConstructData> by mutableStateOf(emptyList())
+
+    var selectedConstruct: ConstructData by mutableStateOf(ConstructData(0, "", emptySet()))
+    var showSelectedConstruct: Boolean by mutableStateOf(false)
 
     var canvasMode: CanvasMode by mutableStateOf(CanvasMode.Navigation)
 
@@ -50,6 +55,10 @@ class GameViewModel : ViewModel() {
     fun clearCells() {
         displayedCells = emptySet()
         workingCells = emptySet()
+    }
+
+    fun addCells(cells: CellSet) {
+        updateCells(workingCells.toSet() + cells.toSet())
     }
 
 

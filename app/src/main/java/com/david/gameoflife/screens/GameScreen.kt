@@ -1,8 +1,8 @@
 package com.david.gameoflife.screens
 
+import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -46,10 +46,10 @@ import com.david.gameoflife.ui.theme.purple700
 import com.david.gameoflife.ui.theme.teal200
 import com.david.gameoflife.utils.*
 import com.david.gameoflife.utils.GameUtils.checkCell
-import com.david.gameoflife.utils.Serialization.parseCoordinates
 import com.david.gameoflife.utils.Serialization.serialize
 import kotlinx.coroutines.launch
 import java.util.*
+import kotlin.math.min
 import kotlin.math.pow
 
 
@@ -65,7 +65,7 @@ fun GameScreen(
     var currentSpeedMultiplier: Long by remember { mutableStateOf(1) }
     var showClearDialog: Boolean by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     val currentContext = LocalContext.current
     val gameIsRunning = gameViewModel.gameIsRunning
     val nextGen = GameUtils::nextGeneration
@@ -96,7 +96,11 @@ fun GameScreen(
         gesturesEnabled = canvasMode == CanvasMode.Navigation,
         drawerState = drawerState,
         drawerContent = {
-            ConstructList()
+            ConstructList {
+                scope.launch {
+                    drawerState.close()
+                }
+            }
         }) {
 
         Scaffold(
@@ -105,7 +109,7 @@ fun GameScreen(
                     cutoutShape = CircleShape
                 ) {
                     IconButton(onClick = {
-                        coroutineScope.launch {
+                        scope.launch {
                             drawerState.open()
                         }
                     }) {
@@ -113,8 +117,9 @@ fun GameScreen(
                     }
                     Spacer(Modifier.weight(0.5f, true))
                     IconButton(onClick = {
-                        gameViewModel.canvasMode = if (canvasMode == CanvasMode.Navigation) CanvasMode.Selection
-                        else CanvasMode.Navigation
+                        gameViewModel.canvasMode =
+                            if (canvasMode == CanvasMode.Navigation) CanvasMode.Selection
+                            else CanvasMode.Navigation
                     }) {
                         if (canvasMode == CanvasMode.Selection)
                             Icon(
@@ -256,7 +261,7 @@ fun GameScreen(
             floatingActionButtonPosition = FabPosition.Center,
             isFloatingActionButtonDocked = true,
         ) {
-            GameGrid()
+            GameGrid(interactive = gameViewModel.canvasMode == CanvasMode.Navigation)
         }
     }
 
@@ -267,7 +272,7 @@ data class ConstructData(val id: Int, val name: String, val cells: CellSet)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ConstructList(gameViewModel: GameViewModel = viewModel()) {
+fun ConstructList(gameViewModel: GameViewModel = viewModel(), closeDrawer: () -> Unit) {
     var showDeletionDialog: Boolean by remember { mutableStateOf(false) }
     var constructToDelete by remember { mutableStateOf(0 to "") }
     val coroutineScope = rememberCoroutineScope()
@@ -307,9 +312,14 @@ fun ConstructList(gameViewModel: GameViewModel = viewModel()) {
         gameViewModel.constructs.forEach { construct ->
             item {
                 ConstructInfo(construct, onTap = {
+                    gameViewModel.canvasMode = CanvasMode.Placing
+                    gameViewModel.selectedConstruct = construct
+                    closeDrawer()
+                }, onLongPress = {
                     constructToDelete = construct.id to construct.name
                     showDeletionDialog = true
-                }, onLongPress = {})
+
+                })
             }
         }
     })
@@ -325,6 +335,7 @@ fun ConstructInfo(
     Card(
         Modifier
             .fillMaxSize()
+            .height(175.dp)
             .padding(8.dp)
             .shadow(8.dp),
         backgroundColor = purple700
@@ -345,9 +356,13 @@ fun ConstructInfo(
                 .size(100.dp)
                 .padding(top = 32.dp),
                 onDraw = {
+                    val (width, height) = construct.dimensions()
                     drawCells(
                         construct.cells,
-                        size.height.toInt() / 3,
+                        min(
+                            size.width.toInt() / width.notZero(),
+                            size.height.toInt() / height.notZero()
+                        ),
                         Offset.Zero,
                         size.height,
                         size.width
@@ -369,16 +384,28 @@ fun GameGrid(
             Offset.Zero
         )
     }
+    var selectedConstructOffset: Offset by remember { mutableStateOf(Offset.Zero) }
+
     var zoomPivot: Offset by remember { mutableStateOf(Offset(0f, 0f)) }
     var increment: Int by remember { mutableStateOf(0) }
     var gridOpacity: Float by remember { mutableStateOf(1.0f) }
     val toggleCell = gameViewModel::toggleCell
 
+    val screenPositionToTileCoords: (screenPos: Offset) -> Offset = { screenPos: Offset ->
+        val tapPosition =
+            screenPos / currentScalingFactor - currentTranslation
+        val tileX =
+            (if (tapPosition.x < 0) tapPosition.x - increment else tapPosition.x) / increment
+        val tileY =
+            (if (tapPosition.y < 0) tapPosition.y - increment else tapPosition.y) / increment
+        Offset(tileX, tileY)
+    }
+
     Canvas(modifier = Modifier
         .fillMaxSize()
         .pointerInput(Unit) {
             detectTransformGestures { _, pan, zoom, _ ->
-                if (!interactive) return@detectTransformGestures
+                if(!interactive) return@detectTransformGestures
                 val newScalingFactor = currentScalingFactor * zoom
                 currentTranslation +=
                     (zoomPivot) / newScalingFactor - (zoomPivot) / currentScalingFactor
@@ -388,20 +415,75 @@ fun GameGrid(
 
                 val newTranslation = currentTranslation + pan / currentScalingFactor
                 currentTranslation = newTranslation
+
             }
+
+        }
+        .pointerInput(Unit) {
+            detectDragGestures(
+                onDrag = { pointerInputChange: PointerInputChange, _: Offset ->
+                    if (gameViewModel.canvasMode == CanvasMode.Placing) {
+                        selectedConstructOffset =
+                            screenPositionToTileCoords(pointerInputChange.position)
+                        pointerInputChange.consumed.positionChange = true
+                        Log.d(
+                            "CELLS",
+                            "${
+                                gameViewModel.selectedConstruct.cells.offset(
+                                    selectedConstructOffset
+                                )
+                            }"
+                        )
+                        Log.d("OFFSET", "dragging")
+
+                    }
+                },
+                onDragEnd = {
+                    if (gameViewModel.canvasMode == CanvasMode.Placing) {
+
+                        gameViewModel.canvasMode = CanvasMode.Navigation
+                        val cells = gameViewModel.selectedConstruct.cells
+                        val offset = selectedConstructOffset
+                        gameViewModel.addCells(cells.offset(offset))
+                        gameViewModel.selectedConstruct = ConstructData(0, "", emptySet())
+                        selectedConstructOffset = Offset.Zero
+                        gameViewModel.showSelectedConstruct = false
+                        Log.d("OFFSET", "drag stopped")
+                        Log.d("CELLS", "${gameViewModel.displayedCells}")
+                    }
+                }
+            )
+
+
         }
         .pointerInput(Unit) {
 
-            detectTapGestures(onTap = {
-                if (!interactive) return@detectTapGestures
-                val tapPosition = it / currentScalingFactor - currentTranslation
-                val actualX = if (tapPosition.x < 0) tapPosition.x - increment else tapPosition.x
-                val actualY = if (tapPosition.y < 0) tapPosition.y - increment else tapPosition.y
-                toggleCell(
-                    actualX.toInt() / increment,
-                    actualY.toInt() / increment
-                )
-            })
+            detectTapGestures(
+                onPress = {
+                    if (gameViewModel.canvasMode == CanvasMode.Placing) {
+                        selectedConstructOffset = screenPositionToTileCoords(it)
+                        gameViewModel.showSelectedConstruct = true
+                        Log.d("OFFSET", "Begin drag")
+                    }
+                },
+                onTap = {
+                    if (gameViewModel.canvasMode == CanvasMode.Placing) {
+                        gameViewModel.canvasMode = CanvasMode.Navigation
+                        val cells = gameViewModel.selectedConstruct.cells
+                        val offset = selectedConstructOffset
+                        gameViewModel.addCells(cells.offset(offset))
+                        gameViewModel.selectedConstruct = ConstructData(0, "", emptySet())
+                        selectedConstructOffset = Offset.Zero
+                        gameViewModel.showSelectedConstruct = false
+                    }
+                    else if (interactive) {
+                        val (tileX, tileY) = screenPositionToTileCoords(it)
+                        toggleCell(
+                            tileX.toInt(),
+                            tileY.toInt()
+                        )
+                    }
+                })
         }, onDraw = {
         val (width, height) = size
         withTransform({
@@ -418,6 +500,8 @@ fun GameGrid(
             val unscaledWidth = width / currentScalingFactor
             val unscaledHeight = height / currentScalingFactor
 
+            val selectedConstruct = gameViewModel.selectedConstruct
+            val offset = selectedConstructOffset
             drawCells(
                 gameViewModel.displayedCells,
                 increment,
@@ -426,6 +510,14 @@ fun GameGrid(
                 unscaledWidth
             )
 
+            if (gameViewModel.showSelectedConstruct)
+                drawCells(
+                    selectedConstruct.cells.offset(offset),
+                    increment,
+                    viewPort,
+                    unscaledHeight,
+                    unscaledWidth
+                )
             if (gridOpacity <= 0.02f) return@Canvas
             for (i in x - x % increment until unscaledWidth.toInt() + x step increment) {
                 drawLine(
@@ -555,9 +647,10 @@ private fun DrawScope.drawCells(
     increment: Int,
     viewPort: Offset,
     unscaledHeight: Float,
-    unscaledWidth: Float
+    unscaledWidth: Float,
+    temporaryCells: CellSet = emptySet()
 ) {
-    cells.forEach { (i, j) ->
+    (cells + temporaryCells).forEach { (i, j) ->
         val lowerX = viewPort.x - increment
         val lowerY = viewPort.y - increment
         val upperX = viewPort.x + unscaledWidth

@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.david.gameoflife.CanvasMode
 import com.david.gameoflife.GameViewModel
 import com.david.gameoflife.TextBoxDialog
 import com.david.gameoflife.persistance.AppDatabase
@@ -41,7 +40,7 @@ fun MainMenuScreen(
 
     DisposableEffect(null, effect = {
         gameViewModel.clearCells()
-        gameViewModel.id = null
+        gameViewModel.boardId = null
         onDispose {
 
         }
@@ -65,8 +64,8 @@ fun MainMenuScreen(
                         )
                     )
                     showSaveDialog = false
-                    gameViewModel.name = it
-                    gameViewModel.id = boardId.toInt()
+                    gameViewModel.boardName = it
+                    gameViewModel.boardId = boardId.toInt()
                     navigateToNewBoard()
                 }
             })
@@ -78,7 +77,9 @@ fun MainMenuScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Button(modifier = Modifier.align(Alignment.CenterHorizontally).padding(5.dp),
+        Button(modifier = Modifier
+            .align(Alignment.CenterHorizontally)
+            .padding(5.dp),
             onClick = {
                 showSaveDialog = true
             }
@@ -86,7 +87,9 @@ fun MainMenuScreen(
             Text("New Game")
         }
         Button(
-            modifier = Modifier.align(Alignment.CenterHorizontally).padding(5.dp),
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(5.dp),
             onClick = {
                 gameViewModel.clearCells()
                 navigateToBoardSelector()

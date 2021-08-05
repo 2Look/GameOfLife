@@ -138,8 +138,8 @@ fun BoardInfo(
                 onClick = {
                     coroutineScope.launch {
                         gameViewModel.updateCells(boardInfoData.cells)
-                        gameViewModel.name = boardInfoData.name
-                        gameViewModel.id = boardInfoData.id
+                        gameViewModel.boardName = boardInfoData.name
+                        gameViewModel.boardId = boardInfoData.id
                         navigateToGameScreen()
                     }
                 }) {

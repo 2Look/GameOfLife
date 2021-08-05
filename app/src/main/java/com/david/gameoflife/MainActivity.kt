@@ -129,12 +129,12 @@ class MainActivity : ComponentActivity() {
             gameViewModel: GameViewModel,
             currentContext: Context
         ) {
-            gameViewModel.id?.let { id ->
+            gameViewModel.boardId?.let { id ->
                 val db = AppDatabase.getInstance(currentContext)
                 runBlocking {
                     db.boardDao().updateBoard(
                         Board(
-                            id, gameViewModel.name, SimpleDateFormat.getDateInstance().format(
+                            id, gameViewModel.boardName, SimpleDateFormat.getDateInstance().format(
                                 Date()
                             ),
                             gameViewModel.workingCells.serialize()
